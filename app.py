@@ -1,79 +1,40 @@
 import streamlit as st
-from frostview.core import run_not_null_test, run_unique_test
-from frostview.config import get_active_tests, add_test_to_config, remove_test_from_config
+from frostview.core import *
+from frostview.input_boxes import *
+from frostview.config import *
+from frostview.column_tests import *
 from snowflake.snowpark import Session
 
-def create_session():
-    return Session.builder.configs({
-        "account": st.secrets["snowflake_account"],
-        "user": st.secrets["snowflake_user"],
-        "password": st.secrets["snowflake_password"],
-        "role": st.secrets["snowflake_role"],
-        "warehouse": st.secrets["snowflake_warehouse"],
-        "database": st.secrets["snowflake_database"],
-        "schema": st.secrets["snowflake_schema"]
-    }).create()
+@st.cache_data(show_spinner=False)
+def ensure_models_exist(_session):
+    create_test_table(_session)
+    create_log_table(_session)
+    create_config_table(_session)
+    create_test_definitions_table(_session)
+    create_config_table_stream(_session)
+    create_tasks_schema(_session)
 
-session = create_session()
+session = Session.builder.getOrCreate()
+ensure_models_exist(session)
+test_definitions = load_test_definitions(session)
 
 st.title("FrostView: Table Validator")
-
-with st.form("table_form"):
-    user_input = st.text_input("Enter full table name (format: DB.SCHEMA.TABLE):")
-    submitted = st.form_submit_button("Submit")
-
-if not submitted:
-    st.stop()
-
-try:
-    session.sql(f"SELECT * FROM {user_input.strip()} LIMIT 1").collect()
-    st.success(f"Table '{user_input.strip()}' exists and is accessible.")
-except Exception as e:
-    st.error(f"Table access failed: {e}")
-    st.stop()
-
-db, schema, table = user_input.strip().split(".")
-columns = session.table(user_input.strip()).columns
-active_config = get_active_tests(session, db, schema, table)
-
-for col in columns:
-    st.markdown(f"---\n#### Column: `{col}`")
-    col_config = active_config.get(col, {})
-    is_nn_scheduled = col_config.get("not_null", False)
-    is_uq_scheduled = col_config.get("unique", False)
-
-    c1, c2, c3 = st.columns([1, 1, 1.5])
-    with c1:
-        st.markdown("**NOT NULL**")
-    with c2:
-        if st.button("▶️ Run now", key=f"run_nn_{col}"):
-            passed, log = run_not_null_test(session, db, schema, table, col)
-            st.success("✅ Passed" if passed else "❌ Failed")
-            st.dataframe(log)
-    with c3:
-        if not is_nn_scheduled:
-            if st.button("📅 Schedule 24h", key=f"sched_nn_{col}"):
-                add_test_to_config(session, db, schema, table, col, "not_null")
-                st.success("Scheduled every 24h")
-        else:
-            if st.button("❌ Unschedule", key=f"unsched_nn_{col}"):
-                remove_test_from_config(session, db, schema, table, col, "not_null")
-                st.warning("Unscheduled")
-
-    c4, c5, c6 = st.columns([1, 1, 1.5])
-    with c4:
-        st.markdown("**UNIQUE**")
-    with c5:
-        if st.button("▶️ Run now", key=f"run_uq_{col}"):
-            passed, log = run_unique_test(session, db, schema, table, col)
-            st.success("✅ Passed" if passed else "❌ Failed")
-            st.dataframe(log)
-    with c6:
-        if not is_uq_scheduled:
-            if st.button("📅 Schedule 24h", key=f"sched_uq_{col}"):
-                add_test_to_config(session, db, schema, table, col, "unique")
-                st.success("Scheduled every 24h")
-        else:
-            if st.button("❌ Unschedule", key=f"unsched_uq_{col}"):
-                remove_test_from_config(session, db, schema, table, col, "unique")
-                st.warning("Unscheduled")
+table_name = input_table_name(session)
+if table_name:
+    try:
+        table_columns = session.table(table_name).columns
+        db, schema, table = table_name.split(".")
+        active_config = get_active_tests(session, db, schema, table)
+        test_run_functions = {
+            "not_null": run_not_null_test,
+            "unique": run_unique_test,
+        }
+        column_tests_buttons(
+            session, table_columns, active_config,
+            db, schema, table, test_definitions,
+            test_run_functions
+        )
+    except Exception as e:
+        st.error(f"Could not load table info: {e}")
+else:
+    st.info("Please enter a valid table name to continue.")
