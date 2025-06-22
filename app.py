@@ -5,6 +5,11 @@ from frostview.config import *
 from frostview.column_tests import *
 from snowflake.snowpark import Session
 
+test_run_functions = {
+    "not_null": run_not_null_test,
+    "unique": run_unique_test,
+}
+
 @st.cache_data(show_spinner=False)
 def ensure_models_exist(_session):
     create_test_table(_session)
@@ -12,8 +17,9 @@ def ensure_models_exist(_session):
     create_config_table(_session)
     create_test_definitions_table(_session)
     create_config_table_stream(_session)
-    create_tasks_schema(_session)
-
+    _session.sql("CREATE SCHEMA IF NOT EXISTS FROSTVIEW.TEST_TASKS").collect()
+    
+    
 session = Session.builder.getOrCreate()
 ensure_models_exist(session)
 test_definitions = load_test_definitions(session)
@@ -25,10 +31,6 @@ if table_name:
         table_columns = session.table(table_name).columns
         db, schema, table = table_name.split(".")
         active_config = get_active_tests(session, db, schema, table)
-        test_run_functions = {
-            "not_null": run_not_null_test,
-            "unique": run_unique_test,
-        }
         column_tests_buttons(
             session, table_columns, active_config,
             db, schema, table, test_definitions,

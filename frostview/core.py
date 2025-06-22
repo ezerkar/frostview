@@ -89,8 +89,6 @@ def create_test_definitions_table(session):
     """
     session.sql(q).collect()
 
-
-def create_tasks_schema(session):
-    session.sql("CREATE SCHEMA IF NOT EXISTS FROSTVIEW.TEST_TASKS").collect()
+    
 
 

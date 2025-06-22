@@ -1,5 +1,101 @@
+import inspect
+import textwrap
+from types import FunctionType
+
+def safe_arg_name_sql(name):
+    if name.upper() in {"TABLE", "COLUMN", "SCHEMA", "DB"}:
+        return f'"{name.upper()}"'
+    return name.upper()
+
+def safe_arg_name_py(name):
+    return name.lower()
+
+def get_func_dependencies(func, globalns=None):
+    import ast
+    if globalns is None:
+        globalns = func.__globals__
+    seen = set()
+    order = []
+    def visit(f):
+        if f in seen:
+            return
+        seen.add(f)
+        tree = ast.parse(textwrap.dedent(inspect.getsource(f)))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+                name = node.func.id
+                called = globalns.get(name)
+                if isinstance(called, FunctionType):
+                    visit(called)
+        order.append(f)
+    visit(func)
+    return list(reversed(order))
+
+def generate_snowflake_proc_from_func_with_deps(
+    func,
+    proc_name=None,
+    db="FROSTVIEW",
+    schema="TEST_TASKS",
+    proc_args=None,
+    return_type="VARIANT"
+):
+    if proc_name is None:
+        proc_name = func.__name__
+    if proc_args is None:
+        sig = inspect.signature(func)
+        proc_args_sql = [
+            f"{safe_arg_name_sql(k)} STRING"
+            for k in list(sig.parameters.keys())
+            if k != "session"
+        ]
+        proc_args_py = [
+            safe_arg_name_py(k)
+            for k in list(sig.parameters.keys())
+            if k != "session"
+        ]
+    else:
+        proc_args_sql = proc_args_py = proc_args
+    # --- Compose imports ---
+    imports_block = textwrap.dedent("""
+    import uuid
+    from datetime import datetime
+    import operator
+    """).strip()
+    # --- Compose all function dependencies ---
+    deps = get_func_dependencies(func)
+    func_source = "\n\n".join([textwrap.dedent(inspect.getsource(f)) for f in deps])
+    # --- Main handler ---
+    main_wrapper = f"""
+def main(session, {', '.join(proc_args_py)}):
+    return {func.__name__}(session, {', '.join(proc_args_py)})
+""".strip()
+    # --- Build SQL ---
+    sql = f"""
+CREATE OR REPLACE PROCEDURE {db}.{schema}.{proc_name}(
+    {', '.join(proc_args_sql)}
+)
+RETURNS {return_type}
+LANGUAGE PYTHON
+RUNTIME_VERSION = '3.11'
+PACKAGES = ('snowflake-snowpark-python')
+HANDLER = 'main'
+AS
+$$
+{imports_block}
+
+{func_source}
+
+{main_wrapper}
+$$;
+"""
+    # Final dedent for the entire code block:
+    lines = [line.rstrip() for line in sql.splitlines()]
+    return "\n".join(lines).strip()
+
+
+
 def create_tasks_proc(session):
-# this task runs every hour 
+# this should be tasked to run every hour
 # and if any changes detected in config creates and deletes tasks accordingly
     q = """
     CREATE PROCEDURE IF NOT EXISTS FROSTVIEW.PUBLIC.SYNC_TEST_TASKS()

@@ -57,7 +57,3 @@ def run_unique_test(session, db, schema, table, column):
     passed, log = run_single_numeric_test(session, db, schema, table, column, single_numeric_query, 
                             'unique_test', operator.eq, 0)
     return passed, log
-
-
-
-
