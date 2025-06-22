@@ -70,5 +70,5 @@ In the Streamlit app:
 3. Results/status will update live in the UI.
 
 Done! FrostView is now live in your account.
-An hourly process will create tasks from from scheduled tests
+An hourly process will create tasks from scheduled tests
 
