@@ -4,6 +4,9 @@
 _FrostView lets you define, run, and schedule data tests (uniqueness, not-null, and more to come) — all from inside your Snowflake account, 
  with a visual UI and no setup headaches._
 
+<img src="https://github.com/user-attachments/assets/6fb48c37-5f29-45d7-b76a-409a02d39555" width="500" height="450">
+
+
 ---
 
 ## 🚀 Features
