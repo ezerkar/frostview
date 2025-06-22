@@ -20,13 +20,9 @@ _FrostView lets you define, run, and schedule data tests (uniqueness, not-null, 
 
 Sign up at [Snowflake Trial](https://signup.snowflake.com/) if you don’t have one.
 
----
-
 ### 2. **Log in to Snowsight**
 
 Go to your Snowflake web UI (Snowsight).
-
----
 
 ### 3. **Set Up the FrostView Database**
 
