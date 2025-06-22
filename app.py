@@ -3,6 +3,7 @@ from frostview.core import *
 from frostview.input_boxes import *
 from frostview.config import *
 from frostview.column_tests import *
+from frostview.create_tasks_proc import *
 from snowflake.snowpark import Session
 
 test_run_functions = {
@@ -16,8 +17,12 @@ def ensure_models_exist(_session):
     create_log_table(_session)
     create_config_table(_session)
     create_test_definitions_table(_session)
-    create_config_table_stream(_session)
     _session.sql("CREATE SCHEMA IF NOT EXISTS FROSTVIEW.TEST_TASKS").collect()
+    for func in test_run_functions.values():
+        q = generate_snowflake_proc_from_func_with_deps(func)
+        _session.sql(q).collect()
+    create_tasks_proc(_session)
+    create_sync_test_tasks_scheduler(_session)
     
     
 session = Session.builder.getOrCreate()

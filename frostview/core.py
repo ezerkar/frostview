@@ -60,13 +60,6 @@ def create_config_table(session):
     """
     session.sql(q).collect()
 
-def create_config_table_stream(session):
-    q = \
-    """
-    CREATE OR REPLACE STREAM FROSTVIEW.SYSTEM_TABLES.TEST_CONFIG_STREAM
-    ON TABLE FROSTVIEW.SYSTEM_TABLES.TEST_CONFIG;
-    """
-    session.sql(q).collect()
 
 def create_test_definitions_table(session):
     q = f"""
