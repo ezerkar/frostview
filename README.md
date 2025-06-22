@@ -36,8 +36,8 @@ In Snowsight Worksheets, run:
 CREATE DATABASE IF NOT EXISTS FROSTVIEW;
 CREATE SCHEMA IF NOT EXISTS FROSTVIEW.PUBLIC;
 
+### 4. **SET UP GITHUB INTEGRATION (ONE-TIME, SYSADMIN ONLY)
 
--- === 4. SET UP GITHUB INTEGRATION (ONE-TIME, SYSADMIN ONLY) ===
 -- Only needed once per Snowflake account.
 -- If already created, skip this section.
 
