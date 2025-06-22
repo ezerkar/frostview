@@ -51,7 +51,7 @@ def column_tests_buttons(session, table_columns, active_config, db, schema, tabl
                 st.markdown(f"**{display_name}**")
             with c1:
                 if st.button("▶️ Run now", key=f"run_{test_name}_{col}"):
-                    passed, log = run_func(session, db, schema, table, col)
+                    passed = run_func(session, db, schema, table, col)
                     st.success("✅ Passed" if passed else "❌ Failed")
             with c2:
                 if not is_scheduled:

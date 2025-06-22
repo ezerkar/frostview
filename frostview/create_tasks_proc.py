@@ -32,49 +32,55 @@ def get_func_dependencies(func, globalns=None):
     return list(reversed(order))
 
 
+import inspect
+import textwrap
+
 def generate_snowflake_proc_from_func_with_deps(
     func,
     proc_name=None,
     db="FROSTVIEW",
     schema="TEST_TASKS",
     proc_args=None,
-    return_type="VARIANT"
+    return_type="STRING"
 ):
     if proc_name is None:
         proc_name = func.__name__
+
     if proc_args is None:
         sig = inspect.signature(func)
         proc_args_sql = [
-            f"{safe_arg_name_sql(k)} STRING"
+            f'"{k.upper()}" STRING'
             for k in list(sig.parameters.keys())
             if k != "session"
         ]
         proc_args_py = [
-            safe_arg_name_py(k)
-            for k in list(sig.parameters.keys())
+            k for k in list(sig.parameters.keys())
             if k != "session"
         ]
     else:
         proc_args_sql = proc_args_py = proc_args
-    # --- Compose imports ---
+
     imports_block = textwrap.dedent("""
     import uuid
     from datetime import datetime
     import operator
     """).strip()
-    # --- Compose all function dependencies ---
-    deps = get_func_dependencies(func)
-    func_source = "\n\n".join([textwrap.dedent(inspect.getsource(f)) for f in deps])
-    # --- Main handler ---
+
+    deps = get_func_dependencies(func)  # Should return a list of all needed functions
+    func_source = "\n\n".join([
+        textwrap.dedent(inspect.getsource(f)) for f in deps
+    ])
+
+    main_args = ", ".join(proc_args_py)
     main_wrapper = f"""
-def main(session, {', '.join(proc_args_py)}):
-    return {func.__name__}(session, {', '.join(proc_args_py)})
-""".strip()
-    # --- Build SQL ---
+    def main(session, {main_args}):
+        return {func.__name__}(session, {main_args})
+    """.strip()
+
     sql = f"""
-CREATE OR REPLACE PROCEDURE {db}.{schema}.{proc_name}(
-    {', '.join(proc_args_sql)}
-)
+    CREATE OR REPLACE PROCEDURE {db}.{schema}.{proc_name}(
+        {', '.join(proc_args_sql)}
+    )
 RETURNS {return_type}
 LANGUAGE PYTHON
 RUNTIME_VERSION = '3.11'
@@ -89,71 +95,62 @@ $$
 {main_wrapper}
 $$;
 """
-    # Final dedent for the entire code block:
-    lines = [line.rstrip() for line in sql.splitlines()]
-    return "\n".join(lines).strip()
+    return "\n".join(line.rstrip() for line in sql.splitlines()).strip()
 
-import textwrap
 
 def create_tasks_proc(session):
-    python_code = '''
+    q = \
+'''
+CREATE OR REPLACE PROCEDURE FROSTVIEW.TEST_TASKS.SYNC_TEST_TASKS()
+RETURNS VARCHAR
+LANGUAGE PYTHON
+RUNTIME_VERSION = '3.11'
+PACKAGES = ('snowflake-snowpark-python')
+HANDLER = 'main'
+EXECUTE AS OWNER
+AS 
+$$
+import re
+def make_task_name(row):
+    safe = lambda s: re.sub(r'[^a-zA-Z0-9_]', '_', s)
+    return (
+        f"{row['TEST_TYPE']}_"
+        f"{safe(row['DATABASE_NAME'])}_"
+        f"{safe(row['SCHEMA_NAME'])}_"
+        f"{safe(row['TABLE_NAME'])}_"
+        f"{safe(row['COLUMN_NAME'])}"
+    ).lower()
+
 def main(session):
-    import re
-
-    stream_rows = session.sql(
-        "SELECT * FROM FROSTVIEW.SYSTEM_TABLES.TEST_CONFIG_STREAM"
-    ).collect()
-
-    if not stream_rows:
-        return "No changes detected in config stream. Nothing to do."
-
     config_rows = session.sql(
-        """SELECT "DB", "SCHEMA", "TABLE", "COLUMN", "TEST_TYPE" FROM FROSTVIEW.SYSTEM_TABLES.TEST_CONFIG WHERE SCHEDULED = TRUE"""
+        """SELECT database_name, schema_name, table_name, column_name, test_type 
+         FROM FROSTVIEW.SYSTEM_TABLES.TEST_CONFIG where schedule_enabled;"""
     ).collect()
 
-    def make_task_name(row):
-        safe = lambda s: re.sub(r'[^a-zA-Z0-9_]', '_', s)
-        return f"{row['TEST_TYPE']}_{safe(row['DB'])}_{safe(row['SCHEMA'])}_{safe(row['TABLE'])}_{safe(row['COLUMN'])}".lower()
+        
     desired_tasks = {make_task_name(r): r for r in config_rows}
 
-    task_rows = session.sql(
-        "SHOW TASKS IN SCHEMA FROSTVIEW.TEST_TASKS"
-    ).collect()
+    task_rows = session.sql("SHOW TASKS IN SCHEMA FROSTVIEW.TEST_TASKS").collect()
     current_tasks = {row['name'].lower() for row in task_rows}
 
     for task_name, row in desired_tasks.items():
         if task_name not in current_tasks:
-            session.sql(f"""
+            create_task_q = f"""
                 CREATE OR REPLACE TASK FROSTVIEW.TEST_TASKS.{task_name}
-                    SCHEDULE = '1 DAY'
+                SCHEDULE = '24 hours'
                 AS
-                    CALL FROSTVIEW.PUBLIC.RUN_COLUMN_TEST(
-                        '{row['DB']}', '{row['SCHEMA']}', '{row['TABLE']}', '{row['COLUMN']}', '{row['TEST_TYPE']}'
-                    );
-            """).collect()
+                CALL FROSTVIEW.TEST_TASKS.RUN_{row['TEST_TYPE']}_TEST(
+                    '{row['DATABASE_NAME']}', '{row['SCHEMA_NAME']}', 
+                    '{row['TABLE_NAME']}', '{row['COLUMN_NAME']}'
+                );"""
+            session.sql(create_task_q).collect()
             session.sql(f"ALTER TASK FROSTVIEW.TEST_TASKS.{task_name} RESUME").collect()
 
     for task_name in current_tasks:
         if task_name not in desired_tasks:
             session.sql(f"DROP TASK IF EXISTS FROSTVIEW.TEST_TASKS.{task_name}").collect()
-
-    session.sql("SELECT SYSTEM$STREAM_ADVANCE('FROSTVIEW.SYSTEM_TABLES.TEST_CONFIG_STREAM', 'NEW')").collect()
-    return "Test tasks synced: Created missing (serverless), dropped obsolete."
+$$;
 '''
-    python_code = textwrap.dedent(python_code)
-
-    q = f"""
-    CREATE PROCEDURE IF NOT EXISTS FROSTVIEW.TEST_TASKS.SYNC_TEST_TASKS()
-    RETURNS STRING
-    LANGUAGE PYTHON
-    RUNTIME_VERSION = '3.11'
-    PACKAGES = ('snowflake-snowpark-python')
-    HANDLER = 'main'
-    AS
-    $$
-{python_code}
-    $$;
-    """
     session.sql(q).collect()
 
 

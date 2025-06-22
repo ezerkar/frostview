@@ -34,7 +34,7 @@ def run_single_numeric_test(session, db, schema, table, column, single_numeric_q
     
     log_df = session.create_dataframe([log])
     log_df.write.save_as_table("frostview.system_tables.frostview_log", mode="append")
-    return passed, log_df
+    return passed
 
 def run_not_null_test(session, db, schema, table, column):
     single_numeric_query = \
@@ -43,9 +43,9 @@ def run_not_null_test(session, db, schema, table, column):
     FROM {'.'.join([db, schema, table])}
     WHERE {column} IS NULL
     """
-    passed, log = run_single_numeric_test(session, db, schema, table, column, single_numeric_query, 
+    passed = run_single_numeric_test(session, db, schema, table, column, single_numeric_query, 
                             'not_null_test', operator.eq, 0)
-    return passed, log
+    return passed
 
 def run_unique_test(session, db, schema, table, column):
     single_numeric_query = \
@@ -54,6 +54,6 @@ def run_unique_test(session, db, schema, table, column):
     FROM {'.'.join([db, schema, table])}
     WHERE {column} IS NULL
     """
-    passed, log = run_single_numeric_test(session, db, schema, table, column, single_numeric_query, 
+    passed = run_single_numeric_test(session, db, schema, table, column, single_numeric_query, 
                             'unique_test', operator.eq, 0)
-    return passed, log
+    return passed 
