@@ -35,17 +35,20 @@ In Snowsight Worksheets, run:
 ```sql
 CREATE DATABASE IF NOT EXISTS FROSTVIEW;
 CREATE SCHEMA IF NOT EXISTS FROSTVIEW.PUBLIC;
+```
 
 ### 4. **SET UP GITHUB INTEGRATION (ONE-TIME, SYSADMIN ONLY)
 
 -- Only needed once per Snowflake account.
 -- If already created, skip this section.
 
+```sql
 CREATE OR REPLACE API INTEGRATION GITHUB_INTEGRATION
   API_PROVIDER = GITHUB
   ENABLED = TRUE;
+```
 
--- === 5. CLONE FROSTVIEW FROM GITHUB ===
+### 5. **CLONE FROSTVIEW FROM GITHUB 
 -- This step is done in Snowsight UI:
 --   1. Go to Projects (or Develop > Projects) in the sidebar.
 --   2. Click "Import from GitHub" or "Git Integration".
@@ -53,29 +56,15 @@ CREATE OR REPLACE API INTEGRATION GITHUB_INTEGRATION
 --   4. Select or search for ezerkar/frostview, and import it.
 --   5. The FrostView code will appear in your Projects list.
 
--- === 6. GRANT MINIMAL PERMISSIONS (EDIT THESE FOR YOUR ENV) ===
-
--- Replace MYDB, PUBLIC, MYTABLE, and <your_role> below:
-
--- Grant usage and select on the tested data:
-GRANT USAGE ON DATABASE MYDB TO ROLE <your_role>;
-GRANT USAGE ON SCHEMA MYDB.PUBLIC TO ROLE <your_role>;
-GRANT SELECT ON TABLE MYDB.PUBLIC.MYTABLE TO ROLE <your_role>;
-
--- Grant write/execute access for FrostView logging:
-GRANT USAGE ON DATABASE FROSTVIEW TO ROLE <your_role>;
-GRANT USAGE, CREATE TABLE, CREATE PROCEDURE, CREATE TASK ON SCHEMA FROSTVIEW.PUBLIC TO ROLE <your_role>;
-GRANT INSERT, UPDATE, DELETE, SELECT ON ALL TABLES IN SCHEMA FROSTVIEW.PUBLIC TO ROLE <your_role>;
-
--- === 7. LAUNCH THE FROSTVIEW STREAMLIT APP ===
+### 6. **LAUNCH THE FROSTVIEW STREAMLIT APP ===
 -- No SQL command, do this in Snowsight UI:
 --   1. Go to Projects and open the imported frostview project.
 --   2. Open frostview/streamlit/app.py (or the main Streamlit app file).
 --   3. Click "Run" (the ▶️ button) to launch the UI.
 
--- === 8. RUN YOUR FIRST TEST! ===
+### 7. **RUN YOUR FIRST TEST! ===
 -- In the Streamlit app:
---   1. Enter your table (format: DB.SCHEMA.TABLE) in the input box.
+--   1. Enter your table (format: DB.SCHEMA.TABLE, you can use the example given) in the input box.
 --   2. Click on a column to run or schedule a test.
 --   3. Results/status will update live in the UI.
 
