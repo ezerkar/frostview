@@ -33,7 +33,7 @@ CREATE DATABASE IF NOT EXISTS FROSTVIEW;
 CREATE SCHEMA IF NOT EXISTS FROSTVIEW.PUBLIC;
 ```
 
-### 4. **SET UP GITHUB INTEGRATION (ONE-TIME, SYSADMIN ONLY)**
+### 4. **Set up Github Integration (one time, SYSADMIN at least)**
 
 Only needed once per Snowflake account.
 
@@ -46,7 +46,7 @@ create or replace api integration github_integration
     enabled = true;
 ```
 
-### 5. **CLONE FROSTVIEW FROM GITHUB**
+### 5. **Clone FrostView from Github**
 
 1. Go to Projects-> Streamlit (left side bar).
 2. Drop-down -> create from repository (upper right corner).
@@ -57,10 +57,10 @@ create or replace api integration github_integration
 
 6. Click Create
 
-### 6. **LAUNCH THE FROSTVIEW STREAMLIT APP**
+### 6. **Launch the FrostView Streamlit App**
 Click Run (upper right corner)
 
-### 7. **RUN YOUR FIRST TEST!**
+### 7. **Run your first Test!**
 In the Streamlit app:
 1. Enter your table (format: DB.SCHEMA.TABLE, you can use the example given) in the input box.
 2. Click on a column to run or schedule a test.
