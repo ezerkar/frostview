@@ -24,7 +24,7 @@ Sign up at [Snowflake Trial](https://signup.snowflake.com/) if you don’t have 
 
 ### 2. **Log in to Snowsight**
 
-- Go to your Snowflake web UI (Snowsight).
+Go to your Snowflake web UI (Snowsight).
 
 ---
 
