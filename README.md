@@ -50,13 +50,15 @@ create or replace api integration github_integration
 
 1. Go to Projects-> Streamlit (left side bar).
 2. Drop-down -> create from repository (upper right corner).
-   ![Screenshot from 2025-06-22 19-00-00](https://github.com/user-attachments/assets/6cbcfb29-6a37-4c43-acb9-1aa5670f6253)
-4. Select main File -> Create Git Repository.
-   ![Screenshot from 2025-06-22 19-01-12](https://github.com/user-attachments/assets/9d71ea3d-4c75-47f7-bf97-70699f516920)
-6. click Create
+<img src="https://github.com/user-attachments/assets/6cbcfb29-6a37-4c43-acb9-1aa5670f6253" width="500" height="400">
+
+4. Select main File -> Create Git Repository -> paste **https://github.com/ezerkar/frostview**.
+<img src="https://github.com/user-attachments/assets/9d71ea3d-4c75-47f7-bf97-70699f516920" width="500" height="400">
+
+6. Click Create
 
 ### 6. **LAUNCH THE FROSTVIEW STREAMLIT APP**
-click Run (upeer right corner)
+Click Run (upper right corner)
 
 ### 7. **RUN YOUR FIRST TEST!**
 In the Streamlit app:
