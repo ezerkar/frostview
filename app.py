@@ -18,12 +18,13 @@ def ensure_models_exist(_session):
     create_config_table(_session)
     create_test_definitions_table(_session)
     _session.sql("CREATE SCHEMA IF NOT EXISTS FROSTVIEW.TEST_TASKS").collect()
+    _session.sql("CREATE TABLE IF NOT EXISTS FROSTVIEW.SYSTEM_TABLES.ALERT_EMAILS (email STRING PRIMARY KEY)")
     for func in test_run_functions.values():
         q = generate_snowflake_proc_from_func_with_deps(func)
         _session.sql(q).collect()
     create_tasks_proc(_session)
     create_sync_test_tasks_scheduler(_session)
-    
+    create_alert_task_scheduler(_session)
     
 session = Session.builder.getOrCreate()
 ensure_models_exist(session)
@@ -45,3 +46,14 @@ if table_name:
         st.error(f"Could not load table info: {e}")
 else:
     st.info("Please enter a valid table name to continue.")
+
+st.subheader("📧 Get Notified About Test Failures")
+email = st.text_input("Enter your email address to receive daily alerts:")
+
+if email:
+    try:
+        insert_to_email_table(session, email)
+        st.success("You’ll now receive daily alerts for any tests failed in the last 24 hours.")
+    except Exception as e:
+        st.error(f"Could not save your email: {e}")
+

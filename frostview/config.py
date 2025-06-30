@@ -1,14 +1,15 @@
 from datetime import datetime
 
 def get_active_tests(session, db, schema, table):
-    query = f"""
+    q = \
+    f"""
         SELECT column_name, test_type
         FROM frostview.system_tables.test_config
         WHERE database_name = '{db}'
           AND schema_name = '{schema}'
           AND table_name = '{table}'
     """
-    rows = session.sql(query).collect()
+    rows = session.sql(q).collect()
 
     config = {}
     for row in rows:
@@ -58,3 +59,14 @@ def load_test_definitions(session):
     rows = session.sql(q).collect()
     return [{"name": row["TEST_NAME"], "display_name": row["DISPLAY_NAME"]} for row in rows]
 
+def insert_to_email_table(session, email):
+    q = \
+    f"""
+    MERGE INTO frostview.system_tables.alert_emails tgt
+    USING (SELECT '{email}' AS email) src
+    ON tgt.email = src.email
+    WHEN NOT MATCHED THEN INSERT (email) VALUES (src.email)
+    """
+    session.sql(q).collect()
+    
+    
