@@ -18,7 +18,7 @@ def ensure_models_exist(_session):
     create_config_table(_session)
     create_test_definitions_table(_session)
     _session.sql("CREATE SCHEMA IF NOT EXISTS FROSTVIEW.TEST_TASKS").collect()
-    _session.sql("CREATE TABLE IF NOT EXISTS FROSTVIEW.SYSTEM_TABLES.ALERT_EMAILS (email STRING PRIMARY KEY)")
+    _session.sql("CREATE TABLE IF NOT EXISTS FROSTVIEW.SYSTEM_TABLES.ALERT_EMAILS (email STRING PRIMARY KEY)").collect()
     for func in test_run_functions.values():
         q = generate_snowflake_proc_from_func_with_deps(func)
         _session.sql(q).collect()
