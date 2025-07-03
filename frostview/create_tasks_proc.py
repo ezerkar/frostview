@@ -168,12 +168,8 @@ def create_sync_test_tasks_scheduler(session):
     session.sql(sql).collect()
     session.sql("ALTER TASK FROSTVIEW.TEST_TASKS.SYNC_TEST_TASKS_SCHEDULER RESUME").collect()
 
-def create_alert_task_scheduler(session):
-    """
-    Create or replace a stored procedure and a task in FROSTVIEW.SYSTEM_TABLES that sends daily
-    email alerts if any test failures occurred in the last 24 hours.
-    """
 
+def create_alert_task_scheduler(session):
     session.sql("""
 CREATE OR REPLACE PROCEDURE FROSTVIEW.SYSTEM_TABLES.SEND_ALERTS()
 RETURNS STRING
@@ -181,39 +177,42 @@ LANGUAGE PYTHON
 RUNTIME_VERSION = '3.11'
 PACKAGES = ('snowflake-snowpark-python')
 HANDLER = 'run'
+EXECUTE AS OWNER
 AS
 $$
-from datetime import datetime, timedelta
-import _snowflake
-
 def run(session):
-    now = datetime.utcnow()
-    since = now - timedelta(hours=24)
-
-    failures = session.sql(f'''
-        SELECT DISTINCT table_name, column_name, test_name
-        FROM frostview.system_tables.test_results
-        WHERE result = 'fail' AND run_time >= '{since.isoformat()}'
-    ''').collect()
-
+    failures = session.sql(
+    "SELECT DISTINCT database_name || '.' || schema_name || '.' || table_name AS table_name, "
+    "column_name, test_type "
+    "FROM frostview.system_tables.frostview_log "
+    "WHERE passed = FALSE AND run_time >= DATEADD(hour, -24, CURRENT_TIMESTAMP())"
+).collect()
     if not failures:
-        return "✅ No failed tests in the last 24 hours."
+        return '✅ No failed tests in the last 24 hours.'
 
-    body = "❄️ FrostView found the following test failures in the last 24 hours:\\n\\n"
+    body = '❄️ FrostView found the following test failures in the last 24 hours:\\n\\n'
     for row in failures:
-        body += f"- Table: {row['TABLE_NAME']}, Column: {row['COLUMN_NAME']}, Test: {row['TEST_NAME']}\\n"
+        body += '- Table: ' + row['TABLE_NAME'] + ', Column: ' + row['COLUMN_NAME'] + ', Test: ' + row['TEST_TYPE'] + '\\n'
 
-    recipients = session.sql("SELECT email FROM frostview.system_tables.alert_emails").collect()
+    body = body.replace("'", "''")  # escape single quotes for SQL
+
+    send_email_template = '''
+        CALL SYSTEM$SEND_EMAIL(
+            'frostview_email_int',
+            'email_to_replace',
+            '❄️ FrostView Alert: Failed Tests Detected',
+            'body_to_replace')
+    '''
+
+    recipients = session.sql('SELECT email FROM frostview.system_tables.alert_emails').collect()
 
     for row in recipients:
-        _snowflake.send_email(
-            to_addresses=[row["EMAIL"]],
-            subject="❄️ FrostView Alert: Failed Tests Detected",
-            body=body
-        )
+        email = row['EMAIL'].replace("'", "''")
+        q = send_email_template.replace('email_to_replace', email).replace('body_to_replace', body)
+        session.sql(q).collect()
 
-    return f"🔔 Alerts sent to {len(recipients)} recipients."
-$$;
+    return '🔔 Alerts sent to ' + str(len(recipients)) + ' recipients.'
+$$
 """).collect()
 
     session.sql("""
@@ -224,7 +223,3 @@ CALL FROSTVIEW.SYSTEM_TABLES.SEND_ALERTS();
 """).collect()
 
     session.sql("ALTER TASK FROSTVIEW.SYSTEM_TABLES.DAILY_ALERTS RESUME").collect()
-
-
-    
-   

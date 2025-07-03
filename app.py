@@ -24,6 +24,7 @@ def ensure_models_exist(_session):
         _session.sql(q).collect()
     create_tasks_proc(_session)
     create_sync_test_tasks_scheduler(_session)
+    _session.sql("CREATE NOTIFICATION INTEGRATION IF NOT EXISTS frostview_email_int TYPE=EMAIL ENABLED=TRUE;").collect()
     create_alert_task_scheduler(_session)
     
 session = Session.builder.getOrCreate()
